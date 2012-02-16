@@ -68,7 +68,7 @@ Copyright 2007-2011 [Waylan Limberg](http://achinghead.com/).
 Project website: <http://www.freewisdom.org/project/python-markdown/HeaderId>
 Contact: markdown@freewisdom.org
 
-License: BSD (see ../docs/LICENSE for details) 
+License: BSD (see ../docs/LICENSE for details)
 
 Dependencies:
 * [Python 2.3+](http://python.org)
@@ -108,10 +108,10 @@ def unique(id, ids):
 
 
 def itertext(elem):
-    """ Loop through all children and return text only. 
-    
+    """ Loop through all children and return text only.
+
     Reimplements method of same name added to ElementTree in Python 2.7
-    
+
     """
     if elem.text:
         yield elem.text
@@ -153,7 +153,7 @@ class HeaderIdTreeprocessor(markdown.treeprocessors.Treeprocessor):
         if hasattr(self.md, 'Meta'):
             if self.md.Meta.has_key('header_level'):
                 level = int(self.md.Meta['header_level'][0]) - 1
-            if self.md.Meta.has_key('header_forceid'): 
+            if self.md.Meta.has_key('header_forceid'):
                 force = self._str2bool(self.md.Meta['header_forceid'][0])
         return level, force
 
@@ -174,7 +174,7 @@ class HeaderIdExtension (markdown.Extension):
                 'level' : ['1', 'Base level for headers.'],
                 'forceid' : ['True', 'Force all headers to have an id.'],
                 'separator' : ['-', 'Word separator.'],
-                'slugify' : [slugify, 'Callable to generate anchors'], 
+                'slugify' : [slugify, 'Callable to generate anchors'],
             }
 
         for key, value in configs:
