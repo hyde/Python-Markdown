@@ -135,7 +135,7 @@ class HeaderIdTreeprocessor(markdown.treeprocessors.Treeprocessor):
             if elem.tag in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
                 if force_id:
                     if "id" in elem.attrib:
-                        id = elem.id
+                        id = elem.attrib['id']
                     else:
                         id = slugify(''.join(itertext(elem)), sep)
                     elem.set('id', unique(id, self.IDs))

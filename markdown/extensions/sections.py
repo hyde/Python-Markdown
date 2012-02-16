@@ -14,6 +14,15 @@ Single section:
     <section class="level1" id="some-header"><h1>Some Header</h1>
     </section>
 
+Single section with id attribute:
+
+    >>> import markdown
+    >>> text = "# Some Header{@id=the_header}"
+    >>> md = markdown.markdown(text, ['headerid', 'sections'])
+    >>> print md
+    <section class="level1" id="the_header"><h1>Some Header</h1>
+    </section>
+
 Two sections:
 
     >>> import markdown
