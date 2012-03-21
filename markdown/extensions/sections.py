@@ -9,18 +9,27 @@ Single section:
 
     >>> import markdown
     >>> text = "# Some Header #"
-    >>> md = markdown.markdown(text, ['headerid', 'sections'])
+    >>> md = markdown.markdown(text, ['attr_list', 'headerid', 'sections'])
     >>> print md
-    <section class="level1" id="some-header"><h1>Some Header</h1>
+    <section class="level1" id="section_some-header"><h1 id="some-header">Some Header</h1>
     </section>
 
 Single section with id attribute:
 
     >>> import markdown
     >>> text = "# Some Header{@id=the_header}"
-    >>> md = markdown.markdown(text, ['headerid', 'sections'])
+    >>> md = markdown.markdown(text, ['attr_list', 'headerid', 'sections'])
     >>> print md
-    <section class="level1" id="the_header"><h1>Some Header</h1>
+    <section class="level1" id="section_the_header"><h1 id="the_header">Some Header</h1>
+    </section>
+
+Single section with class attribute:
+
+    >>> import markdown
+    >>> text = "# Some Header{: .title #the_header}"
+    >>> md = markdown.markdown(text, ['attr_list', 'headerid', 'sections'])
+    >>> print md
+    <section class="level1 title" id="section_the_header"><h1 class="title" id="the_header">Some Header</h1>
     </section>
 
 Two sections:
@@ -32,11 +41,11 @@ Two sections:
     ... ## Some second level header
     ... Some more text
     ... '''
-    >>> md = markdown.markdown(text, ['headerid', 'sections'])
+    >>> md = markdown.markdown(text, ['attr_list', 'headerid', 'sections'])
     >>> print md
-    <section class="level1" id="some-header"><h1>Some Header</h1>
+    <section class="level1 has1" id="section_some-header"><h1 id="some-header">Some Header</h1>
     <p>Some text</p>
-    <section class="level2" id="some-second-level-header"><h2>Some second level header</h2>
+    <section class="level2" id="section_some-second-level-header"><h2 id="some-second-level-header">Some second level header</h2>
     <p>Some more text</p>
     </section></section>
 
@@ -51,13 +60,13 @@ Three sections:
     ... ## Another second level header
     ... Even more text
     ... '''
-    >>> md = markdown.markdown(text, ['headerid', 'sections'])
+    >>> md = markdown.markdown(text, ['attr_list', 'headerid', 'sections'])
     >>> print md
-    <section class="level1" id="some-header"><h1>Some Header</h1>
+    <section class="level1 has2" id="section_some-header"><h1 id="some-header">Some Header</h1>
     <p>Some text</p>
-    <section class="level2" id="some-second-level-header"><h2>Some second level header</h2>
+    <section class="level2" id="section_some-second-level-header"><h2 id="some-second-level-header">Some second level header</h2>
     <p>Some more text</p>
-    </section><section class="level2" id="another-second-level-header"><h2>Another second level header</h2>
+    </section><section class="level2" id="section_another-second-level-header"><h2 id="another-second-level-header">Another second level header</h2>
     <p>Even more text</p>
     </section></section>
 
@@ -86,7 +95,6 @@ def is_true(s, default=False):
         return True
     return default
 
-
 class SectionsAssember(object):
 
     def __init__(self, md, config):
@@ -95,10 +103,10 @@ class SectionsAssember(object):
         self.section_stack = []
         self.current_section = None
         self.current_level = 0
-        self.hijack_header_id = is_true(self._get_config_value('hijack_header_id'))
         self.class_prefix = self._get_config_value('class_prefix')
         self.max_level = int(self._get_config_value('max_level'))
-        self.headers = ['h%d' % level for level in range(self.max_level)]
+        self.allheaders = ['h%d' % level for level in range(1, 7)]
+        self.headers = ['h%d' % level for level in range(1, self.max_level+1)]
 
     def _get_config_value(self, key):
 
@@ -113,15 +121,16 @@ class SectionsAssember(object):
 
     def make_section(self, header, parent):
         atts = {}
-        if self.hijack_header_id:
-            header_id = header.get('id', None)
-            if header_id:
-                atts['id'] = header_id
-                header.set('id', '')
-                del header.attrib['id']
+        header_id = header.get('id', None)
+        if header_id:
+            atts['id'] = 'section_' + header_id
+        css_class = ''
         if self.class_prefix:
             css_class = '%s%d' % (self.class_prefix, self.get_level(header))
-            atts['class'] = css_class
+        header_class = header.get('class', None)
+        if header_class:
+            css_class = css_class + ' ' + header_class
+        atts['class'] = css_class.strip()
         return etree.SubElement(parent, 'section', atts)
 
     def begin_section(self, header, parent):
@@ -132,6 +141,18 @@ class SectionsAssember(object):
         if not self.current_section is None:
             self.section_stack.append((self.current_section, self.current_level))
             parent = self.current_section
+            css_classes = self.current_section.get('class', 'has0').split(' ')
+            count = 0
+            for css_class in css_classes:
+                if css_class.startswith('has'):
+                    count = int(css_class.replace('has', ''))
+            has_class = 'has{count}'.format(count=count)
+            if has_class in css_classes:
+                css_classes.remove(has_class)
+            count = count + 1
+            css_classes.append('has' + str(count))
+            self.current_section.set('class', ' '.join(css_classes))
+
         self.current_section = self.make_section(header, parent)
         self.current_level = level
 
@@ -150,6 +171,7 @@ class SectionsAssember(object):
 
     def assemble(self, elem):
         section = None
+        children = elem.getchildren
         for child in elem.getchildren():
             if child.tag in self.headers:
                 self.begin_section(child, elem)
@@ -179,8 +201,7 @@ class SectionsExtension(markdown.Extension):
         # set defaults
         self.config = {
                 'max_level' : ['3', 'Maximum header level for adding sections.'],
-                'class_prefix' : ['level', 'Prefix for section\'s class attribute.'],
-                'hijack_header_id' : ['True', 'Uses the header\'s id for the section.']
+                'class_prefix' : ['level', 'Prefix for section\'s class attribute.']
             }
 
         for key, value in configs:
