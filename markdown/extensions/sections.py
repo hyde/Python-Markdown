@@ -70,6 +70,78 @@ Three sections:
     <p>Even more text</p>
     </section></section>
 
+Multiple level ones:
+
+    >>> import markdown
+    >>> text = '''
+    ... # Some Header #
+    ... Some text
+    ... ## Some second level header
+    ... Some more text
+    ... ## Another second level header
+    ... Even more text
+    ... # Some Header Two #
+    ... Some text two
+    ... ## Some second level header Two
+    ... Some more text two
+    ... ### Third level header Two
+    ... Even more text two
+    ... '''
+    >>> md = markdown.markdown(text, ['attr_list', 'headerid', 'sections'])
+    >>> print md
+    <section class="level1 has2" id="section_some-header"><h1 id="some-header">Some Header</h1>
+    <p>Some text</p>
+    <section class="level2" id="section_some-second-level-header"><h2 id="some-second-level-header">Some second level header</h2>
+    <p>Some more text</p>
+    </section><section class="level2" id="section_another-second-level-header"><h2 id="another-second-level-header">Another second level header</h2>
+    <p>Even more text</p>
+    </section></section><section class="level1 has1" id="section_some-header-two"><h1 id="some-header-two">Some Header Two</h1>
+    <p>Some text two</p>
+    <section class="level2 has1" id="section_some-second-level-header-two"><h2 id="some-second-level-header-two">Some second level header Two</h2>
+    <p>Some more text two</p>
+    <section class="level3" id="section_third-level-header-two"><h3 id="third-level-header-two">Third level header Two</h3>
+    <p>Even more text two</p>
+    </section></section></section>
+
+
+hgroup three headers:
+
+    >>> import markdown
+    >>> text = '''
+    ... # Some Header #
+    ... ## Some second level header
+    ... Some more text
+    ... ## Another second level header
+    ... Even more text
+    ... '''
+    >>> md = markdown.markdown(text, ['attr_list', 'headerid', 'sections'])
+    >>> print md
+    <section class="level1 has1" id="section_some-header"><hgroup class="level1" id="hgroup_some-header"><h1 id="some-header">Some Header</h1>
+    <h2 id="some-second-level-header">Some second level header</h2>
+    </hgroup><p>Some more text</p>
+    <section class="level2" id="section_another-second-level-header"><h2 id="another-second-level-header">Another second level header</h2>
+    <p>Even more text</p>
+    </section></section>
+
+
+hgroup level two:
+
+    >>> import markdown
+    >>> text = '''
+    ... # Some Header #
+    ... Some text
+    ... ## Some second level header
+    ... ## Another second level header
+    ... Even more text
+    ... '''
+    >>> md = markdown.markdown(text, ['attr_list', 'headerid', 'sections'])
+    >>> print md
+    <section class="level1 has1" id="section_some-header"><h1 id="some-header">Some Header</h1>
+    <p>Some text</p>
+    <section class="level2" id="section_some-second-level-header"><hgroup class="level2" id="hgroup_some-second-level-header"><h2 id="some-second-level-header">Some second level header</h2>
+    <h2 id="another-second-level-header">Another second level header</h2>
+    </hgroup><p>Even more text</p>
+    </section></section>
 
 Author:
 Lakshmi Vyasarajan for the Hyde project(http://github.com/hyde)     2012-02-16
@@ -86,6 +158,8 @@ import re
 import markdown
 from markdown.util import etree
 
+from itertools import izip_longest, tee
+
 def is_true(s, default=False):
     """ Convert a string to a booleen value. """
     s = str(s)
@@ -94,6 +168,12 @@ def is_true(s, default=False):
     elif s.lower() in ['1', 't', 'true', 'on', 'yes', 'y']:
         return True
     return default
+
+def pairwise(iterable):
+    "s -> (s0,s1), (s1,s2), (s2, s3), ..."
+    a, b = tee(iterable)
+    next(b, None)
+    return izip_longest(a, b)
 
 class SectionsAssember(object):
 
@@ -109,7 +189,6 @@ class SectionsAssember(object):
         self.headers = ['h%d' % level for level in range(1, self.max_level+1)]
 
     def _get_config_value(self, key):
-
         try:
             val = self.md.Meta[key]
         except (AttributeError, KeyError):
@@ -119,11 +198,11 @@ class SectionsAssember(object):
     def get_level(self, header):
         return int(header.tag[-1])
 
-    def make_section(self, header, parent):
+    def get_atts_from_header(self, header, id_prefix):
         atts = {}
         header_id = header.get('id', None)
         if header_id:
-            atts['id'] = 'section_' + header_id
+            atts['id'] = id_prefix + header_id
         css_class = ''
         if self.class_prefix:
             css_class = '%s%d' % (self.class_prefix, self.get_level(header))
@@ -131,7 +210,22 @@ class SectionsAssember(object):
         if header_class:
             css_class = css_class + ' ' + header_class
         atts['class'] = css_class.strip()
+        return atts
+
+    def make_section(self, header, parent):
+        atts = self.get_atts_from_header(header, 'section_')
         return etree.SubElement(parent, 'section', atts)
+
+    def hgroup(self, first, second, parent):
+        if parent.tag == 'hgroup':
+            parent.append(second)
+            return parent
+        else:
+            atts = self.get_atts_from_header(first, 'hgroup_')
+            new_hgroup = etree.SubElement(parent, 'hgroup', atts)
+            new_hgroup.append(first)
+            new_hgroup.append(second)
+            return new_hgroup
 
     def begin_section(self, header, parent):
         level = self.get_level(header)
@@ -153,6 +247,8 @@ class SectionsAssember(object):
             css_classes.append('has' + str(count))
             self.current_section.set('class', ' '.join(css_classes))
 
+        if parent and header in parent:
+            parent.remove(header)
         self.current_section = self.make_section(header, parent)
         self.current_level = level
 
@@ -164,23 +260,37 @@ class SectionsAssember(object):
             self.current_level = 0
             self.current_section = None
 
-    def add_element(self, element, parent):
-        if parent:
-            parent.remove(element)
-            self.current_section.append(element)
+    def remove_element(self, element, parents):
+        for parent in parents:
+            if parent is not None and element in parent:
+                parent.remove(element)
+
 
     def assemble(self, elem):
         section = None
-        children = elem.getchildren
-        for child in elem.getchildren():
-            if child.tag in self.headers:
-                self.begin_section(child, elem)
+        hgroup = None
+        for first, second in pairwise(elem.getchildren()):
+            if hgroup is None and first.tag in self.headers:
+                self.begin_section(first, elem)
+                self.remove_element(first, {elem})
                 section = self.current_section
-            if not section is None:
-                self.add_element(child, elem)
-            if len(child):
-                self.assemble(child)
+                section.append(first)
 
+            if (first.tag in self.allheaders and
+                    second is not None and second.tag in self.allheaders):
+                self.remove_element(first, {section, elem})
+                self.remove_element(second, {section, elem})
+                hgroup = self.hgroup(first, second, hgroup or section)
+
+            if first in elem and section is not None:
+                self.remove_element(first, {elem})
+                section.append(first)
+
+            if second is None or second.tag not in self.allheaders:
+                hgroup = None
+
+            if len(first):
+                self.assemble(first)
 
 class SectionsTreeprocessor(markdown.treeprocessors.Treeprocessor):
 
