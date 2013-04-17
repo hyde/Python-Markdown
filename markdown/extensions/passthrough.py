@@ -43,6 +43,7 @@ PASSTHROUGH_BLOCK_RE = re.compile( \
     r'(?P<passthrough>^\+{5,})[ ]*\n(?P<content>.*?)(?P=passthrough)[ ]*$',
     re.MULTILINE|re.DOTALL
     )
+PASSTHROUGH_MARKER= '<!-- hyde.passthrough.placeholder -->'
 
 class PassthroughExtension(markdown.Extension):
 
@@ -52,8 +53,15 @@ class PassthroughExtension(markdown.Extension):
 
         md.preprocessors.add('passthrough_block',
                                  PassthroughBlockPreprocessor(md),
-                                 "_begin")
+                                 ">normalize_whitespace")
 
+        md.postprocessors.add('passthrough_clean',
+                                 PassthroughBlockPostProcessor(),
+                                 "_end")
+
+class PassthroughBlockPostProcessor(markdown.postprocessors.Postprocessor):
+    def run(self, text):
+        return text.replace(PASSTHROUGH_MARKER, '')
 
 class PassthroughBlockPreprocessor(markdown.preprocessors.Preprocessor):
 
@@ -74,6 +82,7 @@ class PassthroughBlockPreprocessor(markdown.preprocessors.Preprocessor):
             m = PASSTHROUGH_BLOCK_RE.search(text)
             if m:
                 content = m.group('content')
+                content = PASSTHROUGH_MARKER + content
                 placeholder = self.markdown.htmlStash.store(content, safe=True)
                 text = '%s\n%s\n%s'% (text[:m.start()], placeholder, text[m.end():])
             else:
