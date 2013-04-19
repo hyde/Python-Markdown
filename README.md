@@ -1,3 +1,10 @@
+# This repo is obsolete.
+
+The [hydedown][] repo contains the relavant extensions.
+
+[hydedown]: https://github.com/hyde/hydedown
+
+
 [Python-Markdown][]
 ===================
 
